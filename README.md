@@ -23,7 +23,7 @@ To run the Lamport Clock program, follow these steps:
 1. Clone the project repository:
 
    ```
-   git clone <repository_url>
+   git clone https://github.com/matheuskolln/lamport-clock
    ```
 
 2. Navigate to the project directory:
