@@ -1,153 +1,224 @@
-import threading
-import time
-import tkinter as tk
 import random
-from typing import List
-from chart import generate_chart
-from lamport import LamportClock
-from server import Server
+import tkinter as tk
+from tkinter import ttk
+import matplotlib.pyplot as plt
 from client import Client
-from PIL import ImageTk, Image
+from server import Server
 
 
-def add_process():
+def plot_gantt_chart(clients):
     """
-    Adds a new process to the server's process list with a randomly generated execution time.
-    Updates the GUI to display the added process.
+    Generates a chart visualizing the timeline of events for each client.
     """
-    if len(server.processes) < 10:
-        process_id = len(server.processes) + 1
-        execution_time = random.randint(1, 3)
-        server.add_process(process_id, execution_time)
-        process_label = tk.Label(
-            frame,
-            text=f"Process {process_id} (Time: {execution_time}s)",
-            font="Helvetica 12 bold",
+    fig, ax = plt.subplots(figsize=(10, 6))
+    colors = plt.cm.get_cmap("tab10").colors
+    y_ticks = []
+    y_labels = []
+
+    for i, client in enumerate(clients):
+        event_count = len(client.get_events())
+        event_names = [event.name for event in client.get_events()]
+        event_exec_times = [event.exec_time for event in client.get_events()]
+        start_times = [event.start_time for event in client.get_events()]
+
+        y_ticks.append(i)
+        y_labels.append(f"Client {client.id}")
+
+        for j in range(event_count):
+            ax.broken_barh(
+                [(start_times[j], event_exec_times[j])],
+                (i - 0.4, 0.8),
+                facecolors=colors[j % len(colors)],
+            )
+            ax.text(
+                start_times[j] + event_exec_times[j] / 2,
+                i,
+                event_names[j],
+                ha="center",
+                va="center",
+            )
+
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Client")
+    ax.set_title("Timeline of Events")
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels(y_labels)
+    ax.set_xticks(
+        range(
+            0,
+            max(
+                [
+                    event.start_time + event.exec_time
+                    for client in clients
+                    for event in client.get_events()
+                ]
+            )
+            + 1,
+            1,
         )
-        process_label.pack()
+    )
+    ax.grid(True)
+    plt.savefig("chart.png")  # Save the chart as an image file
+    plt.close()
 
 
-def run_clock():
-    """
-    Starts the clock by running the client processes.
-    Disables relevant GUI buttons during clock execution.
-    """
-    global clock_running
-    clock_running = True
-    with info_lock:
-        info_label_var.set("Running Lamport Clock...")
-    run_button.config(state=tk.DISABLED)
-    add_button.config(state=tk.DISABLED)
-    reset_button.config(state=tk.DISABLED)
+def create_client_window(clients, menu_frame):
+    def add_event():
+        event_name = event_name_entry.get()
+        exec_time = int(exec_time_entry.get())
+        client.add_event(event_name, exec_time)
+        event_name_entry.delete(0, tk.END)
+        exec_time_entry.delete(0, tk.END)
+        event_name_entry.focus_set()
+        events_listbox.insert(tk.END, f"{event_name} (Execution Time: {exec_time}s)")
 
-    def run_clients():
-        """
-        Starts the client processes for each process in the server's process list.
-        Updates the chart dynamically after each process finishes execution.
-        """
-        total_execution_time = sum([process[2] for process in server.processes])
-        for i, (_, process_id, execution_time) in enumerate(server.processes):
-            client = Client(process_id, server, info_lock, info_label_var)
+    def finish():
+        if len(client.get_events()) == 0:
+            tk.messagebox.showwarning("No Events", "Please add at least one event.")
+        else:
             clients.append(client)
+            refresh_clients()
+            root.destroy()
 
-            total_execution_time -= execution_time
+    client = Client(len(clients) + 1)
+    root = tk.Toplevel()
+    root.title("Create Client")
+    root.geometry("400x500")
 
-            threading.Thread(target=client.send_request, args=(execution_time,)).start()
+    event_frame = ttk.Frame(root)
 
-            # Introduce delay before starting the next client process
-            time.sleep(execution_time)
+    event_name_label = ttk.Label(event_frame, text="Event Name:", font=("Arial", 12))
+    event_name_label.grid(row=0, column=0, pady=10, padx=10, sticky="w")
+    event_name_entry = ttk.Entry(event_frame, font=("Arial", 12))
+    event_name_entry.grid(row=0, column=1, pady=10, padx=10)
+    event_name_entry.focus_set()
 
-            root.after(
-                0, update_chart
-            )  # Generate and display the chart after each process finishes
+    exec_time_label = ttk.Label(event_frame, text="Execution Time:", font=("Arial", 12))
+    exec_time_label.grid(row=1, column=0, pady=10, padx=10, sticky="w")
+    exec_time_entry = ttk.Entry(event_frame, font=("Arial", 12))
+    exec_time_entry.grid(row=1, column=1, pady=10, padx=10)
 
-    update_chart()  # Generate and display the initial empty chart
+    add_button = ttk.Button(
+        event_frame,
+        text="Add Event",
+        command=add_event,
+        style="AccentButton.TButton",
+    )
+    add_button.grid(row=2, column=0, columnspan=2, pady=10, padx=10)
 
-    threading.Thread(target=run_clients).start()
+    events_frame = ttk.Frame(root)
+    events_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-    reset_button.config(state=tk.NORMAL)
+    events_label = ttk.Label(
+        events_frame, text="Events:", font=("Arial", 12), anchor="w"
+    )
+    events_label.pack(fill="x", pady=10)
+
+    events_listbox = tk.Listbox(events_frame, width=40, height=8, font=("Arial", 12))
+    events_listbox.pack(fill="both", expand=True, padx=10)
+
+    event_scrollbar = ttk.Scrollbar(
+        events_frame, orient=tk.VERTICAL, command=events_listbox.yview
+    )
+    events_listbox.configure(yscrollcommand=event_scrollbar.set)
+    event_scrollbar.pack(side=tk.RIGHT, fill="y")
+
+    event_frame.pack(padx=10, pady=10)
+
+    finish_button = ttk.Button(
+        root,
+        text="Finish",
+        command=finish,
+        style="AccentButton.TButton",
+    )
+    finish_button.pack(pady=10)
+
+    def refresh_clients():
+        menu_frame.configure(state="normal")
+        menu_frame.delete("1.0", tk.END)
+        menu_frame.insert(tk.END, "Clients:\n\n")
+        for i, c in enumerate(clients, start=1):
+            menu_frame.insert(tk.END, f"Client {i}\n")
+            for event in c.get_events():
+                menu_frame.insert(
+                    tk.END, f"- {event.name} (Execution Time: {event.exec_time}s)\n"
+                )
+            menu_frame.insert(tk.END, "\n")
+        menu_frame.configure(state="disabled")
 
 
-def update_chart():
-    """
-    Generates and displays the chart dynamically.
-    """
-    with chart_lock:
-        processes = [
-            (process[1], process[0], process[2]) for process in server.processes
-        ]
-        generate_chart(clients, processes)
+def execute_events(clients):
+    print("\nExecuting events randomly...")
+    all_events = [client.get_events() for client in clients]
+    flat_events = [event for client_events in all_events for event in client_events]
+    random.shuffle(flat_events)
 
-        updated_chart_image = ImageTk.PhotoImage(Image.open("chart.png"))
-        chart_label.configure(image=updated_chart_image)
-        chart_label.image = updated_chart_image
+    server = Server()
+    for event in flat_events:
+        client_id = random.randint(1, len(clients))
+        server.process_event(event, client_id)
+
+    print("\nAll events executed!")
+    plot_gantt_chart(clients)
 
 
-def reset(clock: LamportClock):
-    """
-    Resets the clock, server's process list, and clears the GUI labels.
-    Enables relevant GUI buttons after reset.
-    """
-    global clock_running
-    clock_running = False
-    server.processes = []
-    for widget in frame.winfo_children():
-        if isinstance(widget, tk.Label) and "Process" in widget["text"]:
-            widget.destroy()
-    with info_lock:
-        info_label_var.set("Lamport Clock Reset.")
-    run_button.config(state=tk.NORMAL)
-    add_button.config(state=tk.NORMAL)
-    reset_button.config(state=tk.NORMAL)
-    clock.reset()
-    clients.clear()
-    update_chart()
+def main():
+    clients = []
+    root = tk.Tk()
+    root.title("Menu")
+    root.geometry("400x500")
+
+    main_frame = ttk.Frame(root, padding=20)
+    main_frame.pack(fill=tk.BOTH, expand=True)
+
+    menu_frame = tk.Text(main_frame, width=40, height=10, font=("Arial", 12))
+    menu_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+    menu_frame.configure(state="disabled")
+
+    def refresh_clients():
+        menu_frame.configure(state="normal")
+        menu_frame.delete("1.0", tk.END)
+        menu_frame.insert(tk.END, "Clients:\n\n")
+        for i, c in enumerate(clients, start=1):
+            menu_frame.insert(tk.END, f"Client {i}\n")
+            for event in c.get_events():
+                menu_frame.insert(
+                    tk.END, f"- {event.name} (Execution Time: {event.exec_time}s)\n"
+                )
+            menu_frame.insert(tk.END, "\n")
+        menu_frame.configure(state="disabled")
+
+    refresh_clients()
+
+    create_button = ttk.Button(
+        main_frame,
+        text="Create a Client",
+        command=lambda: create_client_window(clients, menu_frame),
+        style="AccentButton.TButton",
+    )
+    create_button.pack(pady=10)
+
+    execute_button = ttk.Button(
+        main_frame,
+        text="Execute Events",
+        command=lambda: execute_events(clients),
+        style="AccentButton.TButton",
+    )
+    execute_button.pack(pady=10)
+
+    exit_button = ttk.Button(
+        main_frame,
+        text="Exit",
+        command=root.destroy,
+        style="AccentButton.TButton",
+    )
+    exit_button.pack(pady=10)
+
+    style = ttk.Style()
+    style.configure("AccentButton.TButton", font=("Arial", 12))
+
+    root.mainloop()
 
 
 if __name__ == "__main__":
-    clock = LamportClock()
-    server = Server(clock)
-    clients: List[Client] = []
-
-    root = tk.Tk()
-    root.title("Lamport Clock")
-
-    info_lock = threading.Lock()
-    info_label_var = tk.StringVar()
-    chart_lock = threading.Lock()
-
-    frame = tk.Frame(root)
-    frame.pack(pady=20)
-
-    add_button = tk.Button(
-        frame, text="Add Process", command=add_process, font="Helvetica 12 bold"
-    )
-    add_button.pack(side=tk.LEFT, padx=10)
-
-    run_button = tk.Button(
-        frame, text="Run Clock", command=run_clock, font="Helvetica 12 bold"
-    )
-    run_button.pack(side=tk.LEFT, padx=10)
-
-    reset_button = tk.Button(
-        frame, text="Reset", command=lambda: reset(clock), font="Helvetica 12 bold"
-    )
-    reset_button.pack(side=tk.LEFT, padx=10)
-
-    info_label = tk.Label(
-        root, textvariable=info_label_var, font="Helvetica 14 bold", pady=10
-    )
-    info_label.pack()
-
-    chart_frame = tk.Frame(root)
-    chart_frame.pack()
-    chart_image = ImageTk.PhotoImage(Image.open("chart.png"))
-
-    chart_label = tk.Label(chart_frame, image=chart_image)
-    chart_label.pack()
-
-    clock_running = False
-
-    root.after(0, update_chart)
-
-    root.mainloop()
+    main()

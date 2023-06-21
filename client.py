@@ -1,41 +1,30 @@
-import time
+from typing import List
+
+
+class Event:
+    def __init__(self, name: str, exec_time: int):
+        self.name = name
+        self.exec_time = exec_time
+        self.start_time = -1
 
 
 class Client:
-    def __init__(self, client_id, server, info_lock, info_label_var):
-        """
-        Client class represents a client process that sends requests to the server.
+    def __init__(self, id: int):
+        self.events: List[Event] = []
+        self.id = id
 
-        Args:
-            client_id (int): ID of the client.
-            server (Server): Server instance to send requests to.
-            info_lock (threading.Lock): Lock for thread-safe access to the info_label_var.
-            info_label_var (tkinter.StringVar): Variable for displaying information in the GUI.
-        """
-        self.client_id = client_id
-        self.server = server
-        self.lamport_times = []
-        self.info_lock = info_lock
-        self.info_label_var = info_label_var
+    def add_event(self, name, exec_time):
+        event = Event(name, exec_time)
+        self.events.append(event)
 
-    def send_request(self, execution_time):
-        """
-        Sends a request to the server and processes the response.
+    def get_events(self):
+        return self.events
 
-        Args:
-            execution_time (int): Time to simulate the processing of the request.
+    def get_total_time(self):
+        total_time = 0
+        for event in self.events:
+            total_time += event.exec_time
+        return total_time
 
-        """
-        received_time = self.server.process_request(
-            self.client_id, self.info_lock, self.info_label_var
-        )
-        self.lamport_times.append(received_time)
-        with self.info_lock:
-            self.info_label_var.set(
-                self.info_label_var.get()
-                + f"\nClient {self.client_id}: Request processed at Lamport time {received_time} (Execution Time: {execution_time}s)"
-            )
-        print(
-            f"Client {self.client_id}: Request processed at Lamport time {received_time} (Execution Time: {execution_time}s)"
-        )
-        time.sleep(execution_time)
+    def get_lamport_times(self):
+        return sorted([event.start_time for event in self.events])
