@@ -1,0 +1,6 @@
+# MyPy Cache
+.mypy_cache/
+.mypy_cache/*
+
+# Chart Image
+chart.png
