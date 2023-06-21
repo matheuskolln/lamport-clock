@@ -2,5 +2,10 @@
 .mypy_cache/
 .mypy_cache/*
 
+# Python-specific ignores
+*.pyc
+*.pyo
+__pycache__/
+
 # Chart Image
 chart.png
