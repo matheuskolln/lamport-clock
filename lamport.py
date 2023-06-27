@@ -1,3 +1,11 @@
+"""
+The Lamport clock is an algorithm used to order concurrent
+events in distributed systems. It assigns a timestamp to
+each event, allowing you to determine the order in which
+they occurred.
+"""
+
+
 import os
 import tkinter as tk
 import matplotlib.pyplot as plt
@@ -10,6 +18,19 @@ def print_event_logs(event_logs):
         timestamps = list(dict.fromkeys([str(timestamp) for timestamp, _ in event_log]))
 
         print(f"P{process_id}: {', '.join(timestamps)}")
+
+
+def get_event_logs_strings(event_logs):
+    strings = []
+    for process_id, event_log in event_logs.items():
+        timestamps = list(dict.fromkeys([str(timestamp) for timestamp, _ in event_log]))
+        strings.append(f"P{process_id}: {', '.join(timestamps)}")
+    return strings
+
+
+def clear_console():
+    for _ in range(0, 20):
+        print("\n")
 
 
 class LamportClock:
@@ -70,35 +91,35 @@ class LamportSimulationApp:
         self.events = []
 
         self.create_process_button = tk.Button(
-            self.window, text="Create Process", command=self.create_process
+            self.window,
+            text="Create Process",
+            command=self.create_process,
+            font=("Arial", 16),
         )
         self.create_process_button.place(x=10, y=10)
 
         self.run_button = tk.Button(
-            self.window, text="Run Simulation", command=self.run_simulation
+            self.window,
+            text="Run Simulation",
+            command=self.run_simulation,
+            font=("Arial", 16),
         )
-        self.run_button.place(x=120, y=10)
+        self.run_button.place(x=326, y=10)
 
         self.reset_button = tk.Button(
             self.window,
             text="Reset Simulation",
             command=self.reset_simulation,
+            font=("Arial", 16),
             state=tk.DISABLED,
         )
-        self.reset_button.place(x=230, y=10)
-
-        self.show_chart_button = tk.Button(
-            self.window,
-            text="Show Chart",
-            command=self.show_chart,
-            state=tk.DISABLED,
-        )
-        self.show_chart_button.place(x=350, y=10)
+        self.reset_button.place(x=612, y=10)
 
         self.chart_label = tk.Label(self.window)
-        self.chart_label.place(x=10, y=50)
+        self.chart_label.place(x=10, y=150)
 
         self.window.geometry("800x600")
+        self.window.resizable(width=False, height=False)
 
     def generate_random_events(self, num_processes):
         events = [[] for _ in range(num_processes)]
@@ -183,9 +204,9 @@ class LamportSimulationApp:
         if len(self.process_labels) < 10:
             # Create the process label
             label_text = f"Process {len(self.process_labels)}"
-            label = tk.Label(self.window, text=label_text, font=("Arial", 12))
+            label = tk.Label(self.window, text=label_text, font=("Arial", 16))
             self.process_labels.append(label)
-            label.place(x=700, y=len(self.process_labels) * 22)
+            label.place(x=660, y=30 + len(self.process_labels) * 22)
             self.enable_buttons()
 
     def run_simulation(self):
@@ -211,7 +232,15 @@ class LamportSimulationApp:
             # Print the event logs
             print_event_logs(event_logs)
             self.reset_button.configure(state=tk.NORMAL)
-            self.show_chart_button.configure(state=tk.NORMAL)
+            self.run_button.configure(state=tk.DISABLED)
+            self.create_process_button.configure(state=tk.DISABLED)
+
+            self.show_chart()
+            timestamps = get_event_logs_strings(event_logs)
+            for x, timestamp in enumerate(timestamps):
+                label = tk.Label(self.window, text=timestamp, font=("Arial", 12))
+                self.process_labels.append(label)
+                label.place(x=650, y=50 + (len(self.process_labels) * 22) + x * 5)
 
             return event_logs
 
@@ -305,9 +334,11 @@ class LamportSimulationApp:
             self.chart_label.image = (
                 tk_image  # Store a reference to avoid garbage collection
             )
-            self.chart_label.place(x=10, y=50)
+            self.chart_label.place(x=10, y=75)
 
     def reset_simulation(self):
+        clear_console()
+        print(f"Simulation has been reset.")
         # Destroy the process labels
         for label in self.process_labels:
             label.destroy()
@@ -316,15 +347,12 @@ class LamportSimulationApp:
         # Destroy the chart label and disable the reset button
         self.chart_label.configure(image="")
         self.reset_button.configure(state=tk.DISABLED)
-        self.show_chart_button.configure(state=tk.DISABLED)
+        self.run_button.configure(state=tk.NORMAL)
+        self.create_process_button.configure(state=tk.NORMAL)
 
     def enable_buttons(self):
-        self.run_button.configure(state=tk.NORMAL)
         self.reset_button.configure(state=tk.NORMAL)
-
-    def disable_buttons(self):
-        self.run_button.configure(state=tk.DISABLED)
-        self.reset_button.configure(state=tk.DISABLED)
+        self.run_button.configure(state=tk.NORMAL)
 
 
 def main():
