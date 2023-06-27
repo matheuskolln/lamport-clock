@@ -8,9 +8,9 @@ they occurred.
 
 import os
 import tkinter as tk
-import matplotlib.pyplot as plt
-from PIL import Image, ImageTk
-import random
+import matplotlib.pyplot as plt  # type: ignore
+from PIL import Image, ImageTk  # type: ignore
+import random  # type: ignore
 
 
 def print_event_logs(event_logs):
