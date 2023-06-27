@@ -125,7 +125,7 @@ class LamportSimulationApp:
         events = [[] for _ in range(num_processes)]
         for process_id in range(num_processes):
             # Determine the number of events for the current process
-            num_process_events = random.randint(1, 4)
+            num_process_events = random.randint(1, 7)
 
             # Generate sequential timestamps for the events within the process
             timestamps = list(range(1, num_process_events + 1))

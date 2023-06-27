@@ -9,6 +9,7 @@ of origin or submission time, preventing conflicts in distributed environments.
 """
 
 
+import random
 import threading
 import time
 import queue
@@ -21,8 +22,9 @@ class Operation:
 
     def execute(self):
         print(f"Starting operation {self.id}: {self.description}")
-        time.sleep(1)  # Simulate operation processing time
-        print(f"Operation {self.id} completed")
+        processing_time = random.uniform(1.2, 2.5)
+        time.sleep(processing_time)  # Simulate operation processing time
+        print(f"Operation {self.id} completed ({processing_time:.2f}s)")
 
 
 class MobileSequencer:
@@ -31,6 +33,7 @@ class MobileSequencer:
         self.sequence_number = 0
         self.pending_operations = queue.Queue()
         self.executed_operations = []
+        self.num_threads = 3
 
     def add_operation(self, operation):
         with self.lock:
@@ -39,13 +42,23 @@ class MobileSequencer:
         self.pending_operations.put(operation)
 
     def process_operations(self):
-        while True:
-            if not self.pending_operations.empty():
-                operation = self.pending_operations.get()
-                operation.execute()
-                self.executed_operations.append(operation)
-            else:
-                time.sleep(1)  # Wait for new operations
+        def process():
+            while True:
+                if not self.pending_operations.empty():
+                    operation = self.pending_operations.get()
+                    operation.execute()
+                    self.executed_operations.append(operation)
+                else:
+                    time.sleep(1)  # Wait for new operations
+
+        threads = []
+        for _ in range(self.num_threads):
+            thread = threading.Thread(target=process)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
     def get_executed_operations(self):
         return self.executed_operations
@@ -54,26 +67,25 @@ class MobileSequencer:
 sequencer = MobileSequencer()
 
 # Simulate adding operations
-operations = [Operation(f"Operation {i}") for i in range(1, 11)]
+operations = [Operation(f"Operation {i}") for i in range(0, 10)]
 
 # Add operations to the sequencer
 for operation in operations:
     sequencer.add_operation(operation)
 
-# Start processing operations in a separate thread
+# Start processing operations in multiple threads
 processing_thread = threading.Thread(target=sequencer.process_operations)
 processing_thread.start()
 
 # Simulate other activities running in parallel
-for i in range(len(operations)):
-    print(f"Performing other activity {i}")
-    time.sleep(1)
+def simulate_other_activities():
+    for i in range(6):
+        print(f"Performing other activity {i}")
+        time.sleep(1)
 
-# Wait for all operations to complete
+
+other_activities_thread = threading.Thread(target=simulate_other_activities)
+other_activities_thread.start()
+
+other_activities_thread.join()
 processing_thread.join()
-
-# Get the executed operations from the sequencer
-executed_operations = sequencer.get_executed_operations()
-print("Executed Operations:")
-for operation in executed_operations:
-    print(f"ID: {operation.id}, Description: {operation.description}")
